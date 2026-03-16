@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FinSight — Financial Analysis Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #080a0f;
+    --surface: #0e1118;
+    --surface2: #141820;
+    --border: #1c2233;
+    --border2: #252d40;
+    --accent: #00e5b4;
+    --accent2: #0099ff;
+    --accent-dim: rgba(0,229,180,0.08);
+    --text: #dce6f0;
+    --muted: #4a5878;
+    --muted2: #7a8aaa;
+    --positive: #00c97e;
+    --negative: #ff4d6a;
+    --warning: #ffb300;
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-body: 'Inter', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ───────────────────────────── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(8,10,15,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; gap: 2rem;
+    height: 76px;
+    overflow: visible;
+  }
+  .logo {
+    font-family: var(--font-display);
+    font-weight: 800; font-size: 1.25rem;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .logo span { color: var(--text); }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  .search-form {
+    display: flex; align-items: center; gap: 0.75rem; flex: 1;
+  }
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .input-group label {
+    font-size: 0.62rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    padding-left: 2px;
+  }
+  input[type="text"] {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  #ticker-input { width: 120px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }
+  #apikey-input { width: 260px; letter-spacing: 0.05em; }
+  #apikey-input::placeholder { color: var(--muted); font-size: 0.8rem; }
+
+  .btn-analyze {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0.55rem 1.25rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: opacity 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+  .btn-analyze:hover { opacity: 0.85; }
+  .btn-analyze:active { transform: scale(0.97); }
+  .btn-analyze:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── MAIN ───────────────────────────────── */
+  main { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 2rem; }
+
+  /* ── LANDING ────────────────────────────── */
+  #landing {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: calc(100vh - 76px);
+    text-align: center; gap: 1.5rem;
+  }
+  .landing-title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+  .landing-title em { color: var(--accent); font-style: normal; }
+  .landing-sub { color: var(--muted2); font-size: 1.1rem; max-width: 500px; }
+  .landing-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+  .tag {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.3rem 0.6rem;
+    color: var(--muted2);
+  }
+  .fmp-note {
+    background: rgba(0,229,180,0.05);
+    border: 1px solid rgba(0,229,180,0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.82rem;
+    color: var(--muted2);
+    max-width: 480px;
+  }
+  .fmp-note a { color: var(--accent); text-decoration: none; }
+  .fmp-note a:hover { text-decoration: underline; }
+
+  /* ── SETUP CARD ──────────────────────────── */
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 1.75rem 2rem;
+    max-width: 540px;
+    width: 100%;
+    text-align: left;
+  }
+  .setup-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .setup-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .setup-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+  }
+  .setup-sub {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--muted2);
+    margin-top: 0.2rem;
+  }
+  .setup-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .setup-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+  }
+  .step-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-text {
+    font-size: 0.85rem;
+    color: var(--muted2);
+    line-height: 1.5;
+  }
+  .step-text a { color: var(--accent); text-decoration: none; }
+  .step-text a:hover { text-decoration: underline; }
+  .step-text strong { color: var(--text); font-weight: 500; }
+  .setup-note {
+    background: rgba(255,179,0,0.06);
+    border: 1px solid rgba(255,179,0,0.2);
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    font-size: 0.78rem;
+    color: var(--muted2);
+    line-height: 1.5;
+  }
+  .setup-note strong { color: var(--warning); font-weight: 500; }
+
+  /* ── LOADING ────────────────────────────── */
+  #loading {
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    min-height: 50vh; gap: 1.5rem;
+  }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text {
+    font-family: var(--font-mono);
+    color: var(--muted2);
+    font-size: 0.85rem;
+  }
+
+  /* ── ERROR ──────────────────────────────── */
+  #error-msg {
+    display: none;
+    background: rgba(255,77,106,0.08);
+    border: 1px solid rgba(255,77,106,0.3);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    color: var(--negative);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+
+  /* ── RESULTS ────────────────────────────── */
+  #results { display: none; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ── COMPANY HEADER ─────────────────────── */
+  .company-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1.5rem;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .company-logo-box {
+    width: 64px; height: 64px; border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .company-logo-box img { width: 100%; height: 100%; object-fit: contain; }
+  .company-logo-box .logo-fallback {
+    font-family: var(--font-display);
+    font-weight: 800; font-size: 1.2rem; color: var(--accent);
+  }
+  .company-name-block {}
+  .company-ticker {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .company-name {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .company-meta {
+    display: flex; gap: 1rem; margin-top: 0.25rem;
+    flex-wrap: wrap;
+  }
+  .company-meta span {
+    font-size: 0.78rem;
+    color: var(--muted2);
+    font-family: var(--font-mono);
+  }
+  .company-meta span strong { color: var(--text); }
+  .company-price-block { text-align: right; }
+  .price-value {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .price-change {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+  }
+  .price-change.pos { color: var(--positive); }
+  .price-change.neg { color: var(--negative); }
+
+  /* ── SECTION LABEL ───────────────────────── */
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── METRICS GRID ────────────────────────── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    transition: border-color 0.2s;
+  }
+  .metric-card:hover { border-color: var(--border2); }
+  .metric-label {
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.4rem;
+  }
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .metric-sub {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted2);
+    margin-top: 0.2rem;
+  }
+
+  /* ── RATIOS ──────────────────────────────── */
+  .ratios-group { margin-bottom: 2.5rem; }
+  .ratios-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+  .ratio-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    transition: border-color 0.2s;
+  }
+  .ratio-card:hover { border-color: var(--border2); }
+  .ratio-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 0.6rem;
+  }
+  .ratio-name {
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--muted2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .ratio-value {
+    font-family: var(--font-mono);
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .ratio-badge {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    align-self: flex-start;
+    margin-top: 0.2rem;
+  }
+  .badge-strong { background: rgba(0,201,126,0.12); color: var(--positive); border: 1px solid rgba(0,201,126,0.25); }
+  .badge-good { background: rgba(0,229,180,0.1); color: var(--accent); border: 1px solid rgba(0,229,180,0.2); }
+  .badge-moderate { background: rgba(255,179,0,0.1); color: var(--warning); border: 1px solid rgba(255,179,0,0.2); }
+  .badge-weak { background: rgba(255,77,106,0.1); color: var(--negative); border: 1px solid rgba(255,77,106,0.2); }
+  .badge-na { background: rgba(74,88,120,0.15); color: var(--muted); border: 1px solid var(--border); }
+  .ratio-bar-wrap { margin: 0.5rem 0; }
+  .ratio-bar-track { height: 3px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+  .ratio-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .ratio-summary {
+    font-size: 0.78rem;
+    color: var(--muted2);
+    line-height: 1.5;
+    font-family: var(--font-body);
+    border-top: 1px solid var(--border);
+    padding-top: 0.6rem;
+    margin-top: 0.5rem;
+  }
+
+  /* ── PEER COMPARISON ─────────────────────── */
+  .peers-section { margin-bottom: 2rem; }
+  .peers-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    font-family: var(--font-mono);
+  }
+  thead tr { background: var(--surface2); }
+  th {
+    padding: 0.7rem 1rem;
+    text-align: right;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  th:first-child { text-align: left; }
+  td {
+    padding: 0.75rem 1rem;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted2);
+    white-space: nowrap;
+  }
+  td:first-child { text-align: left; font-weight: 500; color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr.primary-row td { background: rgba(0,229,180,0.04); }
+  tr.primary-row td:first-child { color: var(--accent); }
+  .val-pos { color: var(--positive); }
+  .val-neg { color: var(--negative); }
+
+  /* ── HEALTH SCORE ────────────────────────── */
+  .score-section {
+    margin-bottom: 2rem;
+  }
+  .score-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+  }
+  .score-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    border-right: 1px solid var(--border);
+    gap: 0.75rem;
+    position: relative;
+  }
+  .score-left::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center 110%, var(--score-glow, rgba(0,229,180,0.06)) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .gauge-wrap {
+    position: relative;
+    width: 180px;
+    height: 100px;
+  }
+  .gauge-svg { width: 180px; height: 100px; overflow: visible; }
+  .gauge-track {
+    fill: none;
+    stroke: var(--border2);
+    stroke-width: 10;
+    stroke-linecap: round;
+  }
+  .gauge-fill {
+    fill: none;
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1);
+    stroke: var(--score-color, var(--accent));
+    filter: drop-shadow(0 0 6px var(--score-color, var(--accent)));
+  }
+  .gauge-score-number {
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-display);
+    font-size: 2.8rem;
+    font-weight: 800;
+    color: var(--score-color, var(--accent));
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+  .gauge-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .grade-badge {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 800;
+    padding: 0.2rem 0.9rem;
+    border-radius: 8px;
+    background: var(--score-bg, rgba(0,229,180,0.1));
+    border: 1px solid var(--score-border, rgba(0,229,180,0.25));
+    color: var(--score-color, var(--accent));
+    letter-spacing: -0.01em;
+  }
+  .score-verdict {
+    font-size: 0.8rem;
+    color: var(--muted2);
+    text-align: center;
+    max-width: 220px;
+    line-height: 1.5;
+  }
+
+  .score-right {
+    padding: 1.75rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  .score-right-title {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.5rem;
+  }
+  .cat-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 46px;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .cat-row:last-child { border-bottom: none; }
+  .cat-name {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted2);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .cat-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cat-bar-track {
+    height: 6px;
+    background: var(--border2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .cat-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(0.4,0,0.2,1);
+  }
+  .cat-score-val {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: right;
+    color: var(--text);
+  }
+  .score-note {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    margin-top: 0.75rem;
+  }
+
+  @media (max-width: 900px) {
+    .score-card { grid-template-columns: 1fr; }
+    .score-left { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  /* ── FOOTER ──────────────────────────────── */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    border-top: 1px solid var(--border);
+    margin-top: 3rem;
+  }
+
+  /* ── UTILS ───────────────────────────────── */
+  .hidden { display: none !important; }
+  .flex { display: flex; }
+  .gap-1 { gap: 0.5rem; }
+
+  @media (max-width: 768px) {
+    header { padding: 0 1rem; flex-wrap: wrap; height: auto; padding-top: 0.75rem; padding-bottom: 0.75rem; }
+    .search-form { flex-wrap: wrap; }
+    #apikey-input { width: 100%; }
+    main { padding: 1rem; }
+    .company-header { grid-template-columns: auto 1fr; }
+    .company-price-block { grid-column: 1 / -1; text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Fin<span>Sight</span>
+  </div>
+  <div class="search-form">
+    <div class="input-group">
+      <label for="ticker-input">Ticker</label>
+      <input type="text" id="ticker-input" placeholder="AAPL" maxlength="10"/>
+    </div>
+    <div class="input-group">
+      <label for="apikey-input">Alpha Vantage API Key</label>
+      <input type="text" id="apikey-input" placeholder="Get free key at alphavantage.co"/>
+    </div>
+    <button class="btn-analyze" id="analyze-btn" onclick="runAnalysis()">ANALYZE →</button>
+  </div>
+</header>
+
+<main>
+  <!-- LANDING -->
+  <div id="landing">
+    <div class="landing-title">Deep financial<br/><em>analysis</em> in seconds.</div>
+    <p class="landing-sub">Enter any public US-listed company ticker for a full health score, ratio analysis, and peer benchmarking.</p>
+    <div class="landing-tags">
+      <span class="tag">Health Score / Grade</span>
+      <span class="tag">Liquidity Ratios</span>
+      <span class="tag">Leverage Ratios</span>
+      <span class="tag">Efficiency Ratios</span>
+      <span class="tag">Profitability</span>
+      <span class="tag">Market Ratios</span>
+      <span class="tag">Peer Comparison</span>
+    </div>
+
+    <!-- API Key Instructions -->
+    <div class="setup-card">
+      <div class="setup-header">
+        <div class="setup-icon">🔑</div>
+        <div>
+          <div class="setup-title">How to get your free API key</div>
+          <div class="setup-sub">Takes about 60 seconds · No credit card required</div>
+        </div>
+      </div>
+      <div class="setup-steps">
+        <div class="setup-step">
+          <div class="step-num">1</div>
+          <div class="step-text">Go to <a href="https://www.alphavantage.co/support/#api-key" target="_blank">alphavantage.co/support/#api-key</a></div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">2</div>
+          <div class="step-text">Enter your name and email address, then click <strong>"Get Free API Key"</strong></div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">3</div>
+          <div class="step-text">Your key appears instantly on the next page — copy it</div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">4</div>
+          <div class="step-text">Paste it into the <strong>"Alpha Vantage API Key"</strong> box above, enter a ticker like <strong>AAPL</strong>, and hit Analyze</div>
+        </div>
+      </div>
+      <div class="setup-note">
+        ⚠ The free tier allows <strong>25 requests/day</strong> and enforces a <strong>5 requests/minute</strong> cap. The app spaces calls out automatically — the main company loads in ~45 seconds, then ~2 minutes for peer data. A progress indicator tells you exactly what's happening.
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">Fetching financial data…</div>
+  </div>
+
+  <!-- ERROR -->
+  <div id="error-msg"></div>
+
+  <!-- RESULTS -->
+  <div id="results">
+
+    <!-- Company Header -->
+    <div class="company-header" id="company-header"></div>
+
+    <!-- Health Score -->
+    <div class="score-section">
+      <div class="section-label">Overall Financial Health Score</div>
+      <div class="score-card" id="score-card"></div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="section-label">Key Financial Metrics (TTM / Most Recent Annual)</div>
+    <div class="metrics-grid" id="metrics-grid"></div>
+
+    <!-- Ratios -->
+    <div class="ratios-group">
+      <div class="section-label">Liquidity Ratios</div>
+      <div class="ratios-grid" id="ratios-liquidity"></div>
+    </div>
+    <div class="ratios-group">
+      <div class="section-label">Leverage Ratios</div>
+      <div class="ratios-grid" id="ratios-leverage"></div>
+    </div>
+    <div class="ratios-group">
+      <div class="section-label">Efficiency Ratios</div>
+      <div class="ratios-grid" id="ratios-efficiency"></div>
+    </div>
+    <div class="ratios-group">
+      <div class="section-label">Profitability Ratios</div>
+      <div class="ratios-grid" id="ratios-profitability"></div>
+    </div>
+    <div class="ratios-group">
+      <div class="section-label">Market Value Ratios</div>
+      <div class="ratios-grid" id="ratios-market"></div>
+    </div>
+
+    <!-- Peer Comparison -->
+    <div class="peers-section">
+      <div class="section-label">Sector Peer Comparison</div>
+      <div class="peers-table-wrap">
+        <table id="peers-table"></table>
+      </div>
+    </div>
+
+  </div><!-- /results -->
+</main>
+
+<footer>
+  FinSight — Data via Alpha Vantage. For informational purposes only. Not financial advice.
+</footer>
+
+<script>
+// ══════════════════════════════════════════
+//  SUMMARY ENGINE
+// ══════════════════════════════════════════
+const SUMMARIES = {
+  currentRatio: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 2) return { badge: 'Strong', cls: 'badge-strong', pct: 90, text: `At ${fmt2(v)}x, the company holds more than twice its short-term obligations in current assets. This signals robust short-term financial health and low liquidity risk. It may also indicate excess idle assets that could be deployed more productively.` };
+    if (v >= 1.5) return { badge: 'Good', cls: 'badge-good', pct: 70, text: `At ${fmt2(v)}x, the company comfortably covers near-term liabilities with room to spare. This is a healthy liquidity position for most industries.` };
+    if (v >= 1) return { badge: 'Adequate', cls: 'badge-moderate', pct: 45, text: `At ${fmt2(v)}x, the company can meet short-term obligations but the buffer is thin. Any unexpected revenue shortfall or cost spike could create pressure on working capital.` };
+    return { badge: 'Concern', cls: 'badge-weak', pct: 15, text: `At ${fmt2(v)}x, current liabilities exceed current assets. This raises short-term liquidity concerns. The company may need to rely on credit facilities or asset sales to meet obligations.` };
+  },
+  quickRatio: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 1.5) return { badge: 'Strong', cls: 'badge-strong', pct: 90, text: `A quick ratio of ${fmt2(v)}x shows the company can cover short-term liabilities without needing to liquidate inventory. This is a very strong near-term liquidity signal.` };
+    if (v >= 1) return { badge: 'Good', cls: 'badge-good', pct: 65, text: `At ${fmt2(v)}x, liquid assets (cash + receivables) fully cover current liabilities. The company does not need to rely on inventory conversion to meet obligations.` };
+    if (v >= 0.5) return { badge: 'Moderate', cls: 'badge-moderate', pct: 40, text: `At ${fmt2(v)}x, the company relies partially on inventory or other current assets to meet short-term obligations. This is acceptable in inventory-heavy sectors but worth monitoring.` };
+    return { badge: 'Weak', cls: 'badge-weak', pct: 15, text: `At ${fmt2(v)}x, liquid assets fall well short of current liabilities. The company faces real short-term liquidity risk if receivables slow or credit tightens.` };
+  },
+  cashRatio: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 1) return { badge: 'Excellent', cls: 'badge-strong', pct: 95, text: `Cash and equivalents exceed current liabilities — the company could repay all short-term debt today without touching other assets. Extremely conservative, sometimes indicating underdeployed cash.` };
+    if (v >= 0.5) return { badge: 'Strong', cls: 'badge-good', pct: 70, text: `The company holds significant cash relative to short-term obligations. This provides a strong defensive cushion against operational disruptions.` };
+    if (v >= 0.2) return { badge: 'Moderate', cls: 'badge-moderate', pct: 45, text: `A cash ratio of ${fmt2(v)}x is typical for well-run businesses — enough liquidity without over-hoarding cash. Management appears to be actively deploying capital.` };
+    return { badge: 'Low', cls: 'badge-weak', pct: 20, text: `Low cash holdings relative to current liabilities. Not necessarily alarming if receivables and inventory are strong, but reduces the company's ability to absorb sudden shocks.` };
+  },
+  debtToEquity: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v < 0.5) return { badge: 'Conservative', cls: 'badge-strong', pct: 90, text: `D/E of ${fmt2(v)}x reflects a primarily equity-financed business. Very low financial risk — the company has significant capacity to take on debt if needed for growth.` };
+    if (v < 1) return { badge: 'Balanced', cls: 'badge-good', pct: 68, text: `A D/E of ${fmt2(v)}x represents a sensible capital structure. Leverage is being used to enhance returns without taking on excessive risk.` };
+    if (v < 2) return { badge: 'Elevated', cls: 'badge-moderate', pct: 40, text: `D/E of ${fmt2(v)}x is elevated but common in capital-intensive industries (utilities, telecom, real estate). Key is whether cash flows comfortably service this debt load.` };
+    return { badge: 'High Risk', cls: 'badge-weak', pct: 15, text: `A D/E of ${fmt2(v)}x signals high financial leverage. The company is heavily debt-financed, making it sensitive to interest rate changes and economic downturns. Scrutinize debt covenants and maturity schedule.` };
+  },
+  debtRatio: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v < 0.3) return { badge: 'Low', cls: 'badge-strong', pct: 88, text: `Only ${pct(v)} of assets are debt-financed. The company has a very strong asset base relative to its obligations — excellent solvency position.` };
+    if (v < 0.5) return { badge: 'Moderate', cls: 'badge-good', pct: 65, text: `${pct(v)} debt-to-assets is typical and manageable. The asset base provides solid coverage for creditors.` };
+    if (v < 0.7) return { badge: 'Elevated', cls: 'badge-moderate', pct: 38, text: `With ${pct(v)} of assets funded by debt, leverage is elevated. Sustainable only if asset quality and cash generation are strong.` };
+    return { badge: 'High', cls: 'badge-weak', pct: 12, text: `${pct(v)} of assets are debt-financed — a high-leverage position that may concern creditors. Monitor net debt trends and coverage ratios closely.` };
+  },
+  interestCoverage: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 10) return { badge: 'Excellent', cls: 'badge-strong', pct: 95, text: `EBIT covers interest expense ${fmt1(v)}x. Exceptional. The company faces virtually no risk of being unable to service its debt from operations.` };
+    if (v >= 5) return { badge: 'Strong', cls: 'badge-good', pct: 72, text: `Interest coverage of ${fmt1(v)}x is solid. Operating income covers interest payments comfortably with meaningful margin for error.` };
+    if (v >= 2) return { badge: 'Adequate', cls: 'badge-moderate', pct: 42, text: `Coverage of ${fmt1(v)}x is adequate but leaves a thinner cushion. A significant earnings decline could stress interest payments.` };
+    if (v >= 1) return { badge: 'Tight', cls: 'badge-weak', pct: 22, text: `Coverage barely above 1x is concerning. The company earns just enough to cover interest — any revenue headwind could result in a technical cash shortfall.` };
+    return { badge: 'Critical', cls: 'badge-weak', pct: 5, text: `Coverage below 1x means operating income is insufficient to cover interest expense. The company is likely consuming cash or taking on additional debt to service existing debt. High distress risk.` };
+  },
+  inventoryTurnover: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 12) return { badge: 'Excellent', cls: 'badge-strong', pct: 92, text: `Inventory cycles ${fmt1(v)}x per year. Near just-in-time efficiency. The company is excellent at converting inventory to sales with minimal holding cost.` };
+    if (v >= 6) return { badge: 'Good', cls: 'badge-good', pct: 68, text: `${fmt1(v)}x turnover reflects efficient inventory management. Inventory is being converted into revenue in a timely manner.` };
+    if (v >= 3) return { badge: 'Average', cls: 'badge-moderate', pct: 42, text: `${fmt1(v)}x is in line with many industries. Worth monitoring for trend — declining turnover can signal slowing demand or accumulating obsolete stock.` };
+    return { badge: 'Slow', cls: 'badge-weak', pct: 18, text: `${fmt1(v)}x indicates slow inventory movement. This may reflect weak demand, poor procurement planning, or risk of inventory obsolescence. Investigate product mix and sell-through rates.` };
+  },
+  receivablesTurnover: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 12) return { badge: 'Excellent', cls: 'badge-strong', pct: 92, text: `Receivables cycle ${fmt1(v)}x annually (~${Math.round(365/v)} days to collect). Excellent credit management — cash conversion is fast and counterparty risk is low.` };
+    if (v >= 8) return { badge: 'Good', cls: 'badge-good', pct: 68, text: `${fmt1(v)}x receivables turnover (~${Math.round(365/v)} days DSO) shows efficient collections and strong customer payment behavior.` };
+    if (v >= 4) return { badge: 'Average', cls: 'badge-moderate', pct: 42, text: `${fmt1(v)}x turnover (~${Math.round(365/v)} days DSO) is average. Monitor for trend — rising DSO can indicate customer financial stress or loosening credit terms.` };
+    return { badge: 'Slow', cls: 'badge-weak', pct: 18, text: `${fmt1(v)}x turnover (~${Math.round(365/v)} days DSO) suggests slow collections. This could strain working capital and increase bad debt risk. Review credit policies.` };
+  },
+  assetTurnover: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 2) return { badge: 'Excellent', cls: 'badge-strong', pct: 90, text: `Generating $${fmt2(v)} of revenue per $1 of assets. Highly efficient asset utilization — the business extracts strong revenue value from its asset base.` };
+    if (v >= 1) return { badge: 'Good', cls: 'badge-good', pct: 65, text: `Asset turnover of ${fmt2(v)}x shows efficient use of assets. The company generates healthy revenue relative to its asset investment.` };
+    if (v >= 0.5) return { badge: 'Moderate', cls: 'badge-moderate', pct: 40, text: `${fmt2(v)}x is typical for capital-intensive industries. Low turnover alone isn't a red flag — it must be assessed alongside margin quality.` };
+    return { badge: 'Low', cls: 'badge-weak', pct: 18, text: `Low asset turnover of ${fmt2(v)}x suggests the company's assets are not being used efficiently to generate revenue. Could reflect excess capacity or asset bloat.` };
+  },
+  netProfitMargin: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 0.2) return { badge: 'Exceptional', cls: 'badge-strong', pct: 92, text: `Net margin of ${pct(v)} is exceptional. The company retains ${pct(v)} of every revenue dollar as profit — strong pricing power and cost discipline are evident.` };
+    if (v >= 0.1) return { badge: 'Strong', cls: 'badge-good', pct: 70, text: `${pct(v)} net margin is a strong result. The company is translating revenue to profit efficiently with solid operating leverage.` };
+    if (v >= 0.05) return { badge: 'Average', cls: 'badge-moderate', pct: 42, text: `${pct(v)} net margin is adequate but leaves the business exposed to cost increases or pricing pressure. Thin buffers require careful expense management.` };
+    if (v >= 0) return { badge: 'Thin', cls: 'badge-weak', pct: 22, text: `${pct(v)} margin is very thin — the company is technically profitable but has little room for error. Any revenue softness could tip to losses.` };
+    return { badge: 'Loss', cls: 'badge-weak', pct: 5, text: `Negative net margin of ${pct(v)} means the company is currently unprofitable. Assess the burn rate, path to profitability, and liquidity runway.` };
+  },
+  roa: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 0.15) return { badge: 'Outstanding', cls: 'badge-strong', pct: 93, text: `ROA of ${pct(v)} is outstanding. The company generates exceptional returns from its assets — a hallmark of high-quality, capital-efficient businesses.` };
+    if (v >= 0.05) return { badge: 'Good', cls: 'badge-good', pct: 65, text: `${pct(v)} ROA reflects good asset productivity. The company is deploying its asset base effectively to generate earnings.` };
+    if (v >= 0) return { badge: 'Low', cls: 'badge-moderate', pct: 35, text: `${pct(v)} ROA is low but may be normal in asset-heavy sectors (utilities, industrials). Evaluate relative to industry peers.` };
+    return { badge: 'Negative', cls: 'badge-weak', pct: 8, text: `Negative ROA of ${pct(v)} means assets are generating losses. The company is consuming rather than creating value from its asset base.` };
+  },
+  roe: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v >= 0.2) return { badge: 'Excellent', cls: 'badge-strong', pct: 90, text: `ROE of ${pct(v)} is excellent. Shareholders are receiving strong returns on their invested equity — a Buffett-style hallmark of a quality business.` };
+    if (v >= 0.1) return { badge: 'Good', cls: 'badge-good', pct: 65, text: `${pct(v)} ROE is a solid result. The company efficiently generates profit relative to shareholder equity, rewarding long-term investors.` };
+    if (v >= 0.05) return { badge: 'Moderate', cls: 'badge-moderate', pct: 40, text: `${pct(v)} ROE is moderate. The company is generating some return on equity but may have room to improve through higher margins or financial leverage.` };
+    if (v >= 0) return { badge: 'Weak', cls: 'badge-weak', pct: 20, text: `${pct(v)} ROE is poor. Equity capital is barely generating any return for shareholders. Management may need to improve margins, asset efficiency, or capital allocation.` };
+    return { badge: 'Negative', cls: 'badge-weak', pct: 5, text: `Negative ROE indicates either a net loss or negative book equity. Requires careful investigation into capital structure and earnings trajectory.` };
+  },
+  eps: v => {
+    if (v === null) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v > 5) return { badge: 'Strong', cls: 'badge-strong', pct: 85, text: `EPS of $${fmt2(v)} reflects strong earnings power per share. High EPS can support share price appreciation and shareholder distributions.` };
+    if (v > 1) return { badge: 'Positive', cls: 'badge-good', pct: 62, text: `Positive EPS of $${fmt2(v)} confirms the company is profitable on a per-share basis. Look for growth trend over multiple periods for full context.` };
+    if (v > 0) return { badge: 'Low', cls: 'badge-moderate', pct: 35, text: `EPS of $${fmt2(v)} is marginally positive. The company is profitable but earnings per share are thin — watch for dilution from share issuances.` };
+    return { badge: 'Negative', cls: 'badge-weak', pct: 10, text: `Negative EPS of $${fmt2(v)} indicates the company is unprofitable. Evaluate growth stage context — early-stage companies may sacrifice near-term EPS for long-term market share.` };
+  },
+  peRatio: v => {
+    if (v === null || v <= 0) return { badge: 'N/A', cls: 'badge-na', text: 'P/E unavailable or negative (loss-making).', pct: 0 };
+    if (v < 10) return { badge: 'Cheap', cls: 'badge-good', pct: 55, text: `P/E of ${fmt1(v)}x may indicate undervaluation, a value trap, or a cyclically depressed sector. Dig into whether earnings quality is sustainable.` };
+    if (v < 20) return { badge: 'Fair Value', cls: 'badge-good', pct: 65, text: `P/E of ${fmt1(v)}x reflects fair value pricing for a mature business. The market is not pricing in exceptional growth, but also not in distress.` };
+    if (v < 40) return { badge: 'Growth Premium', cls: 'badge-moderate', pct: 50, text: `P/E of ${fmt1(v)}x embeds a growth premium. The market expects above-average earnings expansion. Justified only if the growth thesis is credible.` };
+    return { badge: 'High', cls: 'badge-weak', pct: 30, text: `P/E of ${fmt1(v)}x reflects very high growth expectations. Even a modest miss vs expectations could cause a sharp re-rating. Evaluate with a DCF rather than comparable multiples.` };
+  },
+  marketToBook: v => {
+    if (v === null || v <= 0) return { badge: 'N/A', cls: 'badge-na', text: 'Data unavailable.', pct: 0 };
+    if (v < 1) return { badge: 'Below Book', cls: 'badge-moderate', pct: 35, text: `Trading at ${fmt2(v)}x book value. The stock is priced below the accounting value of net assets — could indicate deep value, asset impairment, or investor skepticism about earnings quality.` };
+    if (v < 3) return { badge: 'Reasonable', cls: 'badge-good', pct: 62, text: `${fmt2(v)}x price-to-book reflects a reasonable premium to assets. The market is pricing in some earning power and franchise value beyond hard assets.` };
+    if (v < 6) return { badge: 'Premium', cls: 'badge-moderate', pct: 48, text: `At ${fmt2(v)}x book value, the market is ascribing significant value to intangibles, brand, and earning power. Common in software and consumer brands.` };
+    return { badge: 'High Premium', cls: 'badge-weak', pct: 30, text: `${fmt2(v)}x book value is a very high premium. This is sustainable only for businesses with exceptional returns on equity and durable competitive moats.` };
+  },
+};
+
+// ══════════════════════════════════════════
+//  FORMAT HELPERS
+// ══════════════════════════════════════════
+const fmt2 = v => v == null ? 'N/A' : (+v).toFixed(2);
+const fmt1 = v => v == null ? 'N/A' : (+v).toFixed(1);
+const pct  = v => v == null ? 'N/A' : (v*100).toFixed(1)+'%';
+const curr = (v, decimals=1) => {
+  if (v == null) return 'N/A';
+  const abs = Math.abs(v);
+  const sign = v < 0 ? '-' : '';
+  if (abs >= 1e12) return sign+'$'+(abs/1e12).toFixed(decimals)+'T';
+  if (abs >= 1e9)  return sign+'$'+(abs/1e9).toFixed(decimals)+'B';
+  if (abs >= 1e6)  return sign+'$'+(abs/1e6).toFixed(decimals)+'M';
+  return sign+'$'+abs.toLocaleString();
+};
+const safe = (v, fallback=null) => (v !== undefined && v !== null && !isNaN(v)) ? v : fallback;
+const div  = (a, b) => (b && b !== 0) ? a/b : null;
+
+// ══════════════════════════════════════════
+//  API FETCH — ALPHA VANTAGE
+// ══════════════════════════════════════════
+const AV_BASE = 'https://www.alphavantage.co/query';
+let API_KEY = '';
+
+// Alpha Vantage returns all numbers as strings and uses "None" for nulls
+const avNum = v => {
+  if (v == null || v === 'None' || v === '-' || v === '') return null;
+  const n = parseFloat(String(v).replace(/,/g,''));
+  return isNaN(n) ? null : n;
+};
+
+async function avGet(params) {
+  const qs = new URLSearchParams({ ...params, apikey: API_KEY });
+  const r  = await fetch(`${AV_BASE}?${qs}`);
+  if (!r.ok) throw new Error(`Network error ${r.status}`);
+  const data = await r.json();
+  if (data['Error Message']) throw new Error(data['Error Message']);
+  if (data['Information'])   throw new Error('API rate limit reached. Alpha Vantage free tier allows 25 requests/day. Please wait and try again.');
+  if (data['Note'])          throw new Error('API rate limit reached. Please wait 1 minute and try again.');
+  return data;
+}
+
+// Sector → suggested peer tickers (used when no peers endpoint available)
+const SECTOR_PEERS = {
+  'Technology':             { 'AAPL':['MSFT','GOOGL','META'], 'MSFT':['AAPL','GOOGL','ORCL'], 'GOOGL':['META','MSFT','AAPL'], 'META':['GOOGL','SNAP','PINS'], 'NVDA':['AMD','INTC','QCOM'], 'AMD':['NVDA','INTC','QCOM'], 'ORCL':['SAP','CRM','MSFT'], 'CRM':['ORCL','NOW','MSFT'], '_default':['AAPL','MSFT','GOOGL'] },
+  'Health Care':            { '_default':['JNJ','PFE','UNH'] },
+  'Healthcare':             { '_default':['JNJ','PFE','UNH'] },
+  'Financials':             { 'JPM':['BAC','WFC','GS'], 'BAC':['JPM','WFC','C'], '_default':['JPM','BAC','WFC'] },
+  'Consumer Discretionary': { 'AMZN':['WMT','TGT','COST'], '_default':['AMZN','HD','MCD'] },
+  'Consumer Staples':       { '_default':['PG','KO','PEP'] },
+  'Energy':                 { '_default':['XOM','CVX','COP'] },
+  'Industrials':            { '_default':['HON','GE','CAT'] },
+  'Communication Services': { '_default':['GOOGL','META','DIS'] },
+  'Utilities':              { '_default':['NEE','DUK','SO'] },
+  'Real Estate':            { '_default':['AMT','PLD','CCI'] },
+  'Materials':              { '_default':['LIN','APD','ECL'] },
+};
+
+function getPeers(ticker, sector) {
+  const map = SECTOR_PEERS[sector] ?? {};
+  const specific = map[ticker];
+  if (specific) return specific.filter(s => s !== ticker).slice(0,3);
+  const def = map['_default'] ?? ['MSFT','AAPL','AMZN'];
+  return def.filter(s => s !== ticker).slice(0,3);
+}
+
+async function fetchCompany(ticker, onProgress) {
+  // 5 req/min free tier = must wait 13s between every call
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const DELAY = 13000;
+
+  onProgress?.(`[1/4] Fetching company overview for ${ticker}…`);
+  const overview = await avGet({ function:'OVERVIEW', symbol: ticker });
+  if (!overview.Symbol) throw new Error(`No data found for "${ticker}". Check the ticker — Alpha Vantage supports US-listed stocks.`);
+
+  await wait(DELAY);
+  onProgress?.(`[2/4] Fetching income statement for ${ticker}…`);
+  const incomeRaw = await avGet({ function:'INCOME_STATEMENT', symbol: ticker });
+
+  await wait(DELAY);
+  onProgress?.(`[3/4] Fetching balance sheet for ${ticker}…`);
+  const bsRaw = await avGet({ function:'BALANCE_SHEET', symbol: ticker });
+
+  await wait(DELAY);
+  onProgress?.(`[4/4] Fetching cash flow statement for ${ticker}…`);
+  const cfRaw = await avGet({ function:'CASH_FLOW', symbol: ticker });
+
+  const inc = incomeRaw.annualReports?.[0] ?? {};
+  const bs  = bsRaw.annualReports?.[0]    ?? {};
+  const cf  = cfRaw.annualReports?.[0]    ?? {};
+
+  // Parse income statement
+  const revenue    = avNum(inc.totalRevenue);
+  const netIncome  = avNum(inc.netIncome);
+  const cogs       = avNum(inc.costOfRevenue) ?? avNum(inc.costofGoodsAndServicesSold);
+  const grossProfit= avNum(inc.grossProfit) ?? (revenue != null && cogs != null ? revenue - cogs : null);
+  const opIncome   = avNum(inc.operatingIncome) ?? avNum(inc.ebit);
+  const opExpenses = avNum(inc.totalOperatingExpense) ?? avNum(inc.operatingExpenses);
+  const interest   = avNum(inc.interestExpense) ?? avNum(inc.interestAndDebtExpense);
+
+  // Parse balance sheet
+  const totalAssets       = avNum(bs.totalAssets);
+  const currentAssets     = avNum(bs.totalCurrentAssets);
+  const cash              = avNum(bs.cashAndCashEquivalentsAtCarryingValue) ?? avNum(bs.cashAndShortTermInvestments);
+  const inventory         = avNum(bs.inventory);
+  const receivables       = avNum(bs.currentNetReceivables) ?? avNum(bs.netReceivables);
+  const currentLiabilities= avNum(bs.totalCurrentLiabilities);
+  const totalLiabilities  = avNum(bs.totalLiabilities);
+  const ltDebt            = avNum(bs.longTermDebt) ?? avNum(bs.longTermDebtNoncurrent);
+  const stDebt            = avNum(bs.shortTermDebt) ?? avNum(bs.currentDebt) ?? avNum(bs.currentLongTermDebt);
+  const totalDebt         = (ltDebt != null || stDebt != null) ? (ltDebt??0)+(stDebt??0) : null;
+  const equity            = avNum(bs.totalShareholderEquity);
+
+  // Parse cash flow
+  const opCF      = avNum(cf.operatingCashflow);
+  const capexRaw  = avNum(cf.capitalExpenditures);
+  const capex     = capexRaw != null ? Math.abs(capexRaw) : null;
+  const freeCF    = opCF != null && capex != null ? opCF - capex : null;
+  const buybackRaw= avNum(cf.paymentsForRepurchaseOfCommonStock) ?? avNum(cf.proceedsFromRepurchaseOfEquity);
+  const buybacks  = buybackRaw != null ? Math.abs(buybackRaw) : null;
+  const issuance  = avNum(cf.proceedsFromIssuanceOfCommonStock);
+  const da        = avNum(cf.depreciationDepletionAndAmortization);
+
+  const raw = {
+    revenue, netIncome, cogs, grossProfit, opIncome, opExpenses, interest,
+    totalAssets, currentAssets, cash, inventory, receivables,
+    currentLiabilities, totalLiabilities, ltDebt, stDebt, totalDebt, equity,
+    opCF, capex, freeCF, buybacks, issuance, da,
+    period: inc.fiscalDateEnding ?? ''
+  };
+
+  const mktCap  = avNum(overview.MarketCapitalization);
+  const eps     = avNum(overview.EPS) ?? avNum(overview.DilutedEPSTTM);
+  const peRatio = avNum(overview.PERatio) ?? avNum(overview.TrailingPE);
+  const ptb     = avNum(overview.PriceToBookRatio);
+
+  const profile = {
+    symbol:   overview.Symbol,
+    name:     overview.Name,
+    sector:   overview.Sector,
+    industry: overview.Industry,
+    exchange: overview.Exchange,
+    mktCap,
+    logo: `https://logo.clearbit.com/${overview.Name?.toLowerCase().replace(/[^a-z0-9]/g,'')}.com`,
+  };
+
+  const peers = getPeers(ticker, overview.Sector ?? '');
+  return { profile, raw, eps, peRatio, ptb, peers, overview };
+}
+
+async function fetchPeerData(symbols, onProgress) {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const results = [];
+  for (let i = 0; i < symbols.length; i++) {
+    const sym = symbols[i];
+    try {
+      // Wait before starting each peer (last call of previous company needs gap)
+      await wait(13000);
+      onProgress?.(`Loading peer ${i+1}/${symbols.length}: ${sym}`);
+      const d = await fetchCompany(sym, onProgress);
+      results.push({ sym, ...d });
+    } catch(_) {
+      // Skip failed peers silently
+    }
+  }
+  return results;
+}
+
+// ══════════════════════════════════════════
+//  RATIO CALCULATOR
+// ══════════════════════════════════════════
+function calcRatios(raw, eps, peRatio, ptb) {
+  const r = {};
+  const { revenue, netIncome, cogs, opIncome, interest,
+          totalAssets, currentAssets, cash, inventory, receivables,
+          currentLiabilities, totalLiabilities, totalDebt, equity } = raw;
+  // Liquidity
+  r.currentRatio = div(currentAssets, currentLiabilities);
+  r.quickRatio   = div(currentAssets != null && inventory != null ? currentAssets - inventory : currentAssets, currentLiabilities);
+  r.cashRatio    = div(cash, currentLiabilities);
+  // Leverage
+  r.debtToEquity    = div(totalDebt, equity);
+  r.debtRatio       = div(totalLiabilities, totalAssets);
+  r.interestCoverage= interest && Math.abs(interest) > 0 ? div(opIncome, Math.abs(interest)) : null;
+  // Efficiency
+  r.inventoryTurnover   = div(cogs, inventory);
+  r.receivablesTurnover = div(revenue, receivables);
+  r.assetTurnover       = div(revenue, totalAssets);
+  // Profitability
+  r.netProfitMargin = div(netIncome, revenue);
+  r.roa             = div(netIncome, totalAssets);
+  r.roe             = div(netIncome, equity);
+  // Market
+  r.eps         = safe(eps);
+  r.peRatio     = safe(peRatio);
+  r.marketToBook= safe(ptb);
+  return r;
+}
+
+// ══════════════════════════════════════════
+//  RENDER HELPERS
+// ══════════════════════════════════════════
+function ratioCard(label, value, displayFn, summaryKey, barColor='var(--accent)') {
+  const s = SUMMARIES[summaryKey]?.(value) ?? { badge:'N/A', cls:'badge-na', text:'', pct:0 };
+  const display = displayFn(value);
+  const pctW = Math.min(s.pct, 100);
+  return `
+  <div class="ratio-card">
+    <div class="ratio-top">
+      <div>
+        <div class="ratio-name">${label}</div>
+        <div class="ratio-value">${display}</div>
+      </div>
+      <span class="ratio-badge ${s.cls}">${s.badge}</span>
+    </div>
+    <div class="ratio-bar-wrap">
+      <div class="ratio-bar-track">
+        <div class="ratio-bar-fill" style="width:${pctW}%;background:${barColor}"></div>
+      </div>
+    </div>
+    <div class="ratio-summary">${s.text}</div>
+  </div>`;
+}
+
+function metricCard(label, value, sub='') {
+  return `
+  <div class="metric-card">
+    <div class="metric-label">${label}</div>
+    <div class="metric-value">${value}</div>
+    ${sub ? `<div class="metric-sub">${sub}</div>` : ''}
+  </div>`;
+}
+
+function renderCompanyHeader(profile, raw, overview) {
+  const price     = avNum(overview['50DayMovingAverage']); // best available static price from OVERVIEW
+  const high52    = avNum(overview['52WeekHigh']);
+  const low52     = avNum(overview['52WeekLow']);
+  const chgSign   = '';
+  const logo = `<img src="${profile.logo}" alt="" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="logo-fallback" style="display:none">${(profile.symbol||'?').slice(0,2)}</div>`;
+
+  document.getElementById('company-header').innerHTML = `
+    <div class="company-logo-box">${logo}</div>
+    <div class="company-name-block">
+      <div class="company-ticker">${profile.symbol ?? '—'}</div>
+      <div class="company-name">${profile.name ?? '—'}</div>
+      <div class="company-meta">
+        <span><strong>${profile.sector ?? '—'}</strong> · ${profile.industry ?? '—'}</span>
+        <span>Market Cap: <strong>${curr(profile.mktCap)}</strong></span>
+        <span>Exchange: <strong>${profile.exchange ?? '—'}</strong></span>
+        <span>Period: <strong>${raw.period ?? '—'}</strong></span>
+      </div>
+    </div>
+    <div class="company-price-block">
+      <div class="metric-label" style="text-align:right;margin-bottom:0.3rem">52-WEEK RANGE</div>
+      <div class="price-value" style="font-size:1.1rem">$${low52 ?? '—'} – $${high52 ?? '—'}</div>
+      <div class="price-change" style="color:var(--muted2)">Beta: ${overview.Beta ?? '—'} · EPS: $${overview.EPS ?? '—'}</div>
+    </div>`;
+}
+
+function renderMetrics(raw) {
+  const { revenue, netIncome, grossProfit, opIncome, opExpenses,
+          opCF, freeCF, totalDebt, cash, buybacks, issuance, da, capex, equity, period } = raw;
+  const cards = [
+    ['Revenue',             curr(revenue),        period],
+    ['Net Income',          curr(netIncome),       ''],
+    ['Gross Profit',        curr(grossProfit),     `Margin: ${pct(div(grossProfit, revenue))}`],
+    ['Operating Income',    curr(opIncome),        `Margin: ${pct(div(opIncome, revenue))}`],
+    ['OPEX',                curr(opExpenses),      ''],
+    ['Operating Cash Flow', curr(opCF),            ''],
+    ['Free Cash Flow',      curr(freeCF),          ''],
+    ['Total Debt',          curr(totalDebt),       ''],
+    ['Cash & Equivalents',  curr(cash),            ''],
+    ['Share Buybacks',      curr(buybacks),        'Repurchases'],
+    ['Stock Issuance',      curr(issuance),        'New shares issued'],
+    ['D&A',                 curr(da),              ''],
+    ['CapEx',               curr(capex),           ''],
+    ['Total Equity',        curr(equity),          ''],
+  ];
+  document.getElementById('metrics-grid').innerHTML = cards.map(([l,v,s]) => metricCard(l,v,s)).join('');
+}
+
+// ══════════════════════════════════════════
+//  HEALTH SCORE ENGINE
+// ══════════════════════════════════════════
+const SCORE_WEIGHTS = {
+  liquidity:     { weight: 0.20, keys: ['currentRatio','quickRatio','cashRatio'] },
+  leverage:      { weight: 0.25, keys: ['debtToEquity','debtRatio','interestCoverage'] },
+  efficiency:    { weight: 0.15, keys: ['inventoryTurnover','receivablesTurnover','assetTurnover'] },
+  profitability: { weight: 0.30, keys: ['netProfitMargin','roa','roe'] },
+  market:        { weight: 0.10, keys: ['eps','peRatio'] },
+};
+
+const CAT_META = {
+  liquidity:     { label: 'Liquidity',     color: 'var(--accent)',  dot: '#00e5b4' },
+  leverage:      { label: 'Leverage',      color: 'var(--warning)', dot: '#ffb300' },
+  efficiency:    { label: 'Efficiency',    color: 'var(--accent2)', dot: '#0099ff' },
+  profitability: { label: 'Profitability', color: 'var(--positive)',dot: '#00c97e' },
+  market:        { label: 'Market Value',  color: '#a78bfa',        dot: '#a78bfa' },
+};
+
+function calcHealthScore(ratios) {
+  const cats = {};
+  let weightedTotal = 0;
+  let totalWeight = 0;
+
+  for (const [cat, cfg] of Object.entries(SCORE_WEIGHTS)) {
+    const scores = cfg.keys
+      .map(k => SUMMARIES[k]?.(ratios[k])?.pct ?? null)
+      .filter(v => v !== null);
+    if (scores.length === 0) { cats[cat] = null; continue; }
+    const avg = scores.reduce((a,b) => a+b, 0) / scores.length;
+    cats[cat] = Math.round(avg);
+    weightedTotal += avg * cfg.weight;
+    totalWeight   += cfg.weight;
+  }
+
+  const overall = totalWeight > 0 ? Math.round(weightedTotal / totalWeight) : 0;
+
+  let grade, verdict, scoreColor, scoreBg, scoreBorder, glowColor;
+  if (overall >= 88) {
+    grade='A+'; scoreColor='#00c97e'; scoreBg='rgba(0,201,126,0.1)'; scoreBorder='rgba(0,201,126,0.3)'; glowColor='rgba(0,201,126,0.08)';
+    verdict='Exceptional financial health. Strong across all dimensions — this company exhibits the hallmarks of a high-quality, resilient business.';
+  } else if (overall >= 78) {
+    grade='A'; scoreColor='#00e5b4'; scoreBg='rgba(0,229,180,0.1)'; scoreBorder='rgba(0,229,180,0.25)'; glowColor='rgba(0,229,180,0.06)';
+    verdict='Very strong financial profile. Solid fundamentals with minor areas to watch. Broadly well-managed with good capital discipline.';
+  } else if (overall >= 68) {
+    grade='B+'; scoreColor='#4ade80'; scoreBg='rgba(74,222,128,0.1)'; scoreBorder='rgba(74,222,128,0.25)'; glowColor='rgba(74,222,128,0.06)';
+    verdict='Good financial health. Above-average across most categories with a few areas of moderate weakness worth monitoring over time.';
+  } else if (overall >= 58) {
+    grade='B'; scoreColor='#86efac'; scoreBg='rgba(134,239,172,0.1)'; scoreBorder='rgba(134,239,172,0.2)'; glowColor='rgba(134,239,172,0.05)';
+    verdict='Above average. Core metrics are healthy, though some ratio categories indicate room for improvement in capital structure or operational efficiency.';
+  } else if (overall >= 48) {
+    grade='C+'; scoreColor='#fde047'; scoreBg='rgba(253,224,71,0.1)'; scoreBorder='rgba(253,224,71,0.2)'; glowColor='rgba(253,224,71,0.05)';
+    verdict='Adequate financial position. The company is viable but faces meaningful challenges in one or more categories that could compound under stress.';
+  } else if (overall >= 38) {
+    grade='C'; scoreColor='#ffb300'; scoreBg='rgba(255,179,0,0.1)'; scoreBorder='rgba(255,179,0,0.25)'; glowColor='rgba(255,179,0,0.05)';
+    verdict='Mixed financial health. Some areas are stable but there are notable weaknesses — particularly in leverage or profitability — that deserve close attention.';
+  } else if (overall >= 28) {
+    grade='D'; scoreColor='#fb923c'; scoreBg='rgba(251,146,60,0.1)'; scoreBorder='rgba(251,146,60,0.25)'; glowColor='rgba(251,146,60,0.05)';
+    verdict='Below average. Multiple financial stress signals present. The company may struggle to service obligations or sustain operations without improvement.';
+  } else {
+    grade='F'; scoreColor='#ff4d6a'; scoreBg='rgba(255,77,106,0.1)'; scoreBorder='rgba(255,77,106,0.3)'; glowColor='rgba(255,77,106,0.07)';
+    verdict='Significant financial distress signals across multiple categories. High risk profile — requires deep due diligence on debt structure, cash runway, and turnaround strategy.';
+  }
+
+  return { overall, cats, grade, verdict, scoreColor, scoreBg, scoreBorder, glowColor };
+}
+
+function renderHealthScore(score) {
+  const { overall, cats, grade, verdict, scoreColor, scoreBg, scoreBorder, glowColor } = score;
+
+  // Gauge arc math — semicircle from 180° to 0°, r=80
+  const R = 80;
+  const cx = 90, cy = 90;
+  const startAngle = Math.PI;      // left
+  const endAngle   = 0;            // right
+  const totalArc   = Math.PI;      // 180°
+  const circumference = R * totalArc;
+  const fillFrac  = overall / 100;
+  const dashArray = circumference;
+  const dashOffset = circumference * (1 - fillFrac);
+
+  // Track path: left semicircle (outer half)
+  const trackD = `M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`;
+
+  const catRows = Object.entries(CAT_META).map(([key, meta]) => {
+    const val = cats[key];
+    const display = val === null ? 'N/A' : val;
+    const width = val === null ? 0 : val;
+    return `
+      <div class="cat-row">
+        <div class="cat-name">
+          <span class="cat-dot" style="background:${meta.dot}"></span>
+          ${meta.label}
+        </div>
+        <div class="cat-bar-track">
+          <div class="cat-bar-fill" style="width:${width}%;background:${meta.color}"></div>
+        </div>
+        <div class="cat-score-val">${display}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('score-card').innerHTML = `
+    <div class="score-left" style="--score-color:${scoreColor};--score-bg:${scoreBg};--score-border:${scoreBorder};--score-glow:${glowColor}">
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="10 10 160 90" xmlns="http://www.w3.org/2000/svg">
+          <path class="gauge-track" d="${trackD}"/>
+          <path class="gauge-fill" d="${trackD}"
+            stroke-dasharray="${dashArray}"
+            stroke-dashoffset="${dashOffset}"
+            stroke="${scoreColor}"/>
+        </svg>
+        <div class="gauge-score-number" style="color:${scoreColor}">${overall}</div>
+      </div>
+      <div class="gauge-label">out of 100</div>
+      <div class="grade-badge" style="background:${scoreBg};border-color:${scoreBorder};color:${scoreColor}">${grade}</div>
+      <div class="score-verdict">${verdict}</div>
+    </div>
+    <div class="score-right">
+      <div class="score-right-title">Score Breakdown by Category</div>
+      ${catRows}
+      <div class="score-note">Weighted: Profitability 30% · Leverage 25% · Liquidity 20% · Efficiency 15% · Market 10%</div>
+    </div>`;
+}
+
+function renderRatios(ratios) {
+  const green  = 'var(--positive)';
+  const teal   = 'var(--accent)';
+  const amber  = 'var(--warning)';
+  const blue   = 'var(--accent2)';
+  const purple = '#a78bfa';
+
+  document.getElementById('ratios-liquidity').innerHTML = [
+    ratioCard('Current Ratio',          ratios.currentRatio,       v=>fmt2(v)+'x', 'currentRatio',  teal),
+    ratioCard('Quick Ratio',            ratios.quickRatio,         v=>fmt2(v)+'x', 'quickRatio',    teal),
+    ratioCard('Cash Ratio',             ratios.cashRatio,          v=>fmt2(v)+'x', 'cashRatio',     teal),
+  ].join('');
+
+  document.getElementById('ratios-leverage').innerHTML = [
+    ratioCard('Debt-to-Equity',         ratios.debtToEquity,       v=>fmt2(v)+'x', 'debtToEquity',  amber),
+    ratioCard('Debt Ratio',             ratios.debtRatio,          v=>pct(v),      'debtRatio',     amber),
+    ratioCard('Interest Coverage',      ratios.interestCoverage,   v=>fmt1(v)+'x', 'interestCoverage', amber),
+  ].join('');
+
+  document.getElementById('ratios-efficiency').innerHTML = [
+    ratioCard('Inventory Turnover',     ratios.inventoryTurnover,  v=>fmt1(v)+'x', 'inventoryTurnover',   blue),
+    ratioCard('Receivables Turnover',   ratios.receivablesTurnover,v=>fmt1(v)+'x', 'receivablesTurnover', blue),
+    ratioCard('Asset Turnover',         ratios.assetTurnover,      v=>fmt2(v)+'x', 'assetTurnover',       blue),
+  ].join('');
+
+  document.getElementById('ratios-profitability').innerHTML = [
+    ratioCard('Net Profit Margin',      ratios.netProfitMargin,    v=>pct(v),      'netProfitMargin',  green),
+    ratioCard('Return on Assets (ROA)', ratios.roa,                v=>pct(v),      'roa',              green),
+    ratioCard('Return on Equity (ROE)', ratios.roe,                v=>pct(v),      'roe',              green),
+  ].join('');
+
+  document.getElementById('ratios-market').innerHTML = [
+    ratioCard('EPS (Diluted)',          ratios.eps,                v=>v==null?'N/A':'$'+fmt2(v), 'eps',          purple),
+    ratioCard('P/E Ratio',             ratios.peRatio,            v=>fmt1(v)+'x', 'peRatio',          purple),
+    ratioCard('Price-to-Book',         ratios.marketToBook,       v=>fmt2(v)+'x', 'marketToBook',     purple),
+  ].join('');
+}
+
+function renderPeers(mainTicker, mainData, peersData) {
+  const toEntity = (d, sym, primary) => ({
+    sym, primary,
+    name:    d.profile?.name ?? sym,
+    mktCap:  d.profile?.mktCap,
+    raw:     d.raw,
+    pe:      d.peRatio,
+    pb:      d.ptb,
+  });
+
+  const allEntities = [
+    toEntity(mainData, mainTicker, true),
+    ...peersData.map(p => toEntity(p, p.sym, false))
+  ];
+
+  const cols = [
+    { label: 'Company',    fn: e => e.name.slice(0,24) },
+    { label: 'Mkt Cap',    fn: e => curr(e.mktCap) },
+    { label: 'Revenue',    fn: e => curr(e.raw?.revenue) },
+    { label: 'Net Margin', fn: e => pct(div(e.raw?.netIncome, e.raw?.revenue)) },
+    { label: 'ROE',        fn: e => pct(div(e.raw?.netIncome, e.raw?.equity)) },
+    { label: 'D/E',        fn: e => { const v=div(e.raw?.totalDebt, e.raw?.equity); return v!=null?fmt2(v)+'x':'N/A'; } },
+    { label: 'Curr Ratio', fn: e => { const v=div(e.raw?.currentAssets, e.raw?.currentLiabilities); return v!=null?fmt2(v)+'x':'N/A'; } },
+    { label: 'P/E',        fn: e => { const v=e.pe; return v&&v>0?fmt1(v)+'x':'N/A'; } },
+    { label: 'P/B',        fn: e => { const v=e.pb; return v&&v>0?fmt2(v)+'x':'N/A'; } },
+  ];
+
+  const thead = `<thead><tr>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead>`;
+  const tbody = `<tbody>${allEntities.map(e=>`
+    <tr class="${e.primary?'primary-row':''}">
+      ${cols.map(c=>`<td>${c.fn(e)}</td>`).join('')}
+    </tr>`).join('')}</tbody>`;
+
+  document.getElementById('peers-table').innerHTML = thead + tbody;
+}
+
+// ══════════════════════════════════════════
+//  MAIN ANALYSIS RUNNER
+// ══════════════════════════════════════════
+async function runAnalysis() {
+  const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+  API_KEY = document.getElementById('apikey-input').value.trim();
+
+  if (!ticker)  { showError('Please enter a stock ticker symbol.'); return; }
+  if (!API_KEY) { showError('Please enter your Alpha Vantage API key. Get one free at alphavantage.co'); return; }
+
+  // Hide any old error
+  document.getElementById('error-msg').style.display = 'none';
+  setState('loading');
+  setLoadingText('[1/4] Fetching company overview…');
+
+  const onProgress = msg => setLoadingText(msg);
+
+  try {
+    const data = await fetchCompany(ticker, onProgress);
+
+    setLoadingText('Calculating ratios & health score…');
+    const ratios = calcRatios(data.raw, data.eps, data.peRatio, data.ptb);
+
+    setLoadingText(`Loading peer companies — this takes ~2 min on the free tier, please wait…`);
+    const peersData = await fetchPeerData(data.peers, onProgress);
+
+    setLoadingText('Rendering results…');
+    renderCompanyHeader(data.profile, data.raw, data.overview);
+    renderMetrics(data.raw);
+    const healthScore = calcHealthScore(ratios);
+    renderHealthScore(healthScore);
+    renderRatios(ratios);
+    renderPeers(ticker, data, peersData);
+
+    setState('results');
+  } catch(e) {
+    showError(e.message || 'An error occurred. Check your API key and ticker.');
+    setState('error');
+  }
+}
+
+function setState(state) {
+  document.getElementById('landing').style.display  = state==='landing'  ? 'flex' : 'none';
+  document.getElementById('loading').style.display  = state==='loading'  ? 'flex' : 'none';
+  document.getElementById('results').style.display  = state==='results'  ? 'block': 'none';
+  document.getElementById('error-msg').style.display= state==='error'    ? 'block': 'none';
+}
+function setLoadingText(t) { document.getElementById('loading-text').textContent = t; }
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+// Enter key support
+document.addEventListener('DOMContentLoaded', () => {
+  ['ticker-input','apikey-input'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') runAnalysis();
+    });
+  });
+});
+</script>
+</body>
+</html>
